@@ -42,17 +42,17 @@ import com.google.firebase.firestore.util.Util;
  */
 public abstract class FieldValue implements Comparable<FieldValue> {
   /** The order of types in Firestore; this order is defined by the backend. */
-  static final int TYPE_ORDER_NULL = 0;
+  protected static final int TYPE_ORDER_NULL = 0;
 
-  static final int TYPE_ORDER_BOOLEAN = 1;
-  static final int TYPE_ORDER_NUMBER = 2;
-  static final int TYPE_ORDER_TIMESTAMP = 3;
-  static final int TYPE_ORDER_STRING = 4;
-  static final int TYPE_ORDER_BLOB = 5;
-  static final int TYPE_ORDER_REFERENCE = 6;
-  static final int TYPE_ORDER_GEOPOINT = 7;
-  static final int TYPE_ORDER_ARRAY = 8;
-  static final int TYPE_ORDER_OBJECT = 9;
+  protected static final int TYPE_ORDER_BOOLEAN = 1;
+  protected static final int TYPE_ORDER_NUMBER = 2;
+  protected static final int TYPE_ORDER_TIMESTAMP = 3;
+  protected static final int TYPE_ORDER_STRING = 4;
+  protected static final int TYPE_ORDER_BLOB = 5;
+  protected static final int TYPE_ORDER_REFERENCE = 6;
+  protected static final int TYPE_ORDER_GEOPOINT = 7;
+  protected static final int TYPE_ORDER_ARRAY = 8;
+  protected static final int TYPE_ORDER_OBJECT = 9;
 
   public abstract int typeOrder();
 

@@ -64,7 +64,7 @@ public final class MutationBatch {
       Timestamp localWriteTime,
       List<Mutation> baseMutations,
       List<Mutation> mutations) {
-    hardAssert(!mutations.isEmpty(), "Cannot create an empty mutation batch");
+    hardAssert(!mutations.isEmpty(), "Cannot of an empty mutation batch");
     this.batchId = batchId;
     this.localWriteTime = localWriteTime;
     this.baseMutations = baseMutations;

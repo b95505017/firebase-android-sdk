@@ -19,38 +19,30 @@ import static com.google.firebase.firestore.testutil.TestUtil.dbId;
 import static com.google.firebase.firestore.testutil.TestUtil.field;
 import static com.google.firebase.firestore.testutil.TestUtil.fieldMask;
 import static com.google.firebase.firestore.testutil.TestUtil.key;
-import static com.google.firebase.firestore.testutil.TestUtil.map;
 import static com.google.firebase.firestore.testutil.TestUtil.ref;
-import static com.google.firebase.firestore.testutil.TestUtil.wrap;
-import static com.google.firebase.firestore.testutil.TestUtil.wrapObject;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.testing.EqualsTester;
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.Blob;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.model.mutation.FieldMask;
-import com.google.firebase.firestore.model.value.BlobValue;
-import com.google.firebase.firestore.model.value.BooleanValue;
-import com.google.firebase.firestore.model.value.DoubleValue;
-import com.google.firebase.firestore.model.value.FieldValue;
-import com.google.firebase.firestore.model.value.GeoPointValue;
-import com.google.firebase.firestore.model.value.IntegerValue;
-import com.google.firebase.firestore.model.value.NullValue;
-import com.google.firebase.firestore.model.value.ObjectValue;
-import com.google.firebase.firestore.model.value.ReferenceValue;
+import com.google.firebase.firestore.model.protovalue.ObjectValue;
+import com.google.firebase.firestore.model.protovalue.PrimitiveValue;
 import com.google.firebase.firestore.model.value.ServerTimestampValue;
-import com.google.firebase.firestore.model.value.StringValue;
-import com.google.firebase.firestore.model.value.TimestampValue;
 import com.google.firebase.firestore.testutil.ComparatorTester;
+import com.google.firestore.v1.ArrayValue;
+import com.google.firestore.v1.Value;
+import com.google.protobuf.NullValue;
+import com.google.type.LatLng;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.Map;
+import java.util.List;
 import java.util.TimeZone;
-import java.util.TreeMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -74,10 +66,8 @@ public class FieldValueTest {
 
   @Test
   public void testExtractsFields() {
-    FieldValue val = wrapObject("foo", map("a", 1, "b", true, "c", "string"));
-    assertTrue(val instanceof ObjectValue);
-    ObjectValue obj = (ObjectValue) val;
-    assertTrue(obj.get(field("foo")) instanceof ObjectValue);
+    ObjectValue obj = wrapObject("foo", map("a", 1, "b", true, "c", "string"));
+    assertEquals(wrap(map("a", 1, "b", true, "c", "string")), obj.get(field("foo")));
     assertEquals(wrap(1), obj.get(field("foo.a")));
     assertEquals(wrap(true), obj.get(field("foo.b")));
     assertEquals(wrap("string"), obj.get(field("foo.c")));
@@ -89,7 +79,7 @@ public class FieldValueTest {
 
   @Test
   public void testExtractsFieldMask() {
-    FieldValue val =
+    ObjectValue val =
         wrapObject(
             "a",
             "b",
@@ -97,8 +87,7 @@ public class FieldValueTest {
             map("a", 1, "b", true, "c", "string", "nested", map("d", "e")),
             "emptymap",
             map());
-    assertTrue(val instanceof ObjectValue);
-    FieldMask mask = ((ObjectValue) val).getFieldMask();
+    FieldMask mask = val.getFieldMask();
     assertEquals(fieldMask("a", "map.a", "map.b", "map.c", "map.nested.d", "emptymap"), mask);
   }
 
@@ -113,9 +102,13 @@ public class FieldValueTest {
 
   @Test
   public void testAddsNewFields() {
-    ObjectValue empty = ObjectValue.emptyObject();
+    ObjectValue empty =
+        new ObjectValue(
+            Value.newBuilder()
+                .setMapValue(com.google.firestore.v1.MapValue.getDefaultInstance())
+                .build());
     ObjectValue mod = empty.set(field("a"), wrap("mod"));
-    assertEquals(wrap(new TreeMap<String, FieldValue>()), empty);
+    assertEquals(wrapObject(), empty);
     assertEquals(wrapObject("a", "mod"), mod);
 
     ObjectValue old = mod;
@@ -185,76 +178,81 @@ public class FieldValueTest {
 
   @Test
   public void testDeletesNestedKeys() {
-    Map<String, Object> orig = map("a", map("b", 1, "c", map("d", 2, "e", 3)));
-    ObjectValue old = wrapObject(orig);
+    Value orig = map("a", map("b", 1, "c", map("d", 2, "e", 3)));
+    ObjectValue old = new ObjectValue(orig);
     ObjectValue mod = old.delete(field("a.c.d"));
 
     assertNotEquals(mod, old);
-    assertEquals(wrapObject(orig), old);
+    assertEquals(new ObjectValue(orig), old);
 
-    Map<String, Object> second = map("a", map("b", 1, "c", map("e", 3)));
-    assertEquals(wrapObject(second), mod);
+    Value second = map("a", map("b", 1, "c", map("e", 3)));
+    assertEquals(new ObjectValue(second), mod);
 
     old = mod;
     mod = old.delete(field("a.c"));
 
     assertNotEquals(old, mod);
-    assertEquals(wrapObject(second), old);
+    assertEquals(new ObjectValue(second), old);
 
-    Map<String, Object> third = map("a", map("b", 1));
-    assertEquals(wrapObject(third), mod);
+    Value third = map("a", map("b", 1));
+    assertEquals(new ObjectValue(third), mod);
 
     old = mod;
     mod = old.delete(field("a"));
 
     assertNotEquals(old, mod);
-    assertEquals(wrapObject(third), old);
+    assertEquals(new ObjectValue(third), old);
     assertEquals(ObjectValue.emptyObject(), mod);
   }
 
   @Test
   public void testValueEquality() {
     new EqualsTester()
-        .addEqualityGroup(wrap(true), BooleanValue.valueOf(true))
-        .addEqualityGroup(wrap(false), BooleanValue.valueOf(false))
-        .addEqualityGroup(wrap(null), NullValue.nullValue())
+        .addEqualityGroup(wrap(true), wrap(true))
+        .addEqualityGroup(wrap(false), wrap(false))
+        .addEqualityGroup(wrap(null), wrap(null))
         .addEqualityGroup(
-            wrap(0.0 / 0.0), wrap(Double.longBitsToDouble(0x7ff8000000000000L)), DoubleValue.NaN)
+            wrap(0.0 / 0.0), wrap(Double.longBitsToDouble(0x7ff8000000000000L)), wrap(Double.NaN))
         // -0.0 and 0.0 compareTo the same but are not equal.
         .addEqualityGroup(wrap(-0.0))
         .addEqualityGroup(wrap(0.0))
-        .addEqualityGroup(wrap(1), IntegerValue.valueOf(1L))
+        .addEqualityGroup(wrap(1), wrap(1))
         // Doubles and Longs aren't equal.
-        .addEqualityGroup(wrap(1.0), DoubleValue.valueOf(1.0))
-        .addEqualityGroup(wrap(1.1), DoubleValue.valueOf(1.1))
-        .addEqualityGroup(wrap(blob(0, 1, 2)), BlobValue.valueOf(blob(0, 1, 2)))
+        .addEqualityGroup(wrap(1.0), wrap(1.0))
+        .addEqualityGroup(wrap(1.1), wrap(1.1))
+        .addEqualityGroup(wrap(blob(0, 1, 2)), wrap(blob(0, 1, 2)))
         .addEqualityGroup(wrap(blob(0, 1)))
-        .addEqualityGroup(wrap("string"), StringValue.valueOf("string"))
-        .addEqualityGroup(StringValue.valueOf("strin"))
+        .addEqualityGroup(wrap("string"), wrap("string"))
+        .addEqualityGroup(wrap("strin"))
         // latin small letter e + combining acute accent
-        .addEqualityGroup(StringValue.valueOf("e\u0301b"))
+        .addEqualityGroup(wrap("e\u0301b"))
         // latin small letter e with acute accent
-        .addEqualityGroup(StringValue.valueOf("\u00e9a"))
-        .addEqualityGroup(wrap(date1), TimestampValue.valueOf(new Timestamp(date1)))
-        .addEqualityGroup(TimestampValue.valueOf(new Timestamp(date2)))
+        .addEqualityGroup(wrap("\u00e9a"))
+        .addEqualityGroup(wrap(new Timestamp(date1)), wrap(new Timestamp(date1)))
+        .addEqualityGroup(wrap(new Timestamp(date2)))
         // NOTE: ServerTimestampValues can't be parsed via wrap().
         .addEqualityGroup(
             new ServerTimestampValue(new Timestamp(date1), null),
             new ServerTimestampValue(new Timestamp(date1), null))
         .addEqualityGroup(new ServerTimestampValue(new Timestamp(date2), null))
-        .addEqualityGroup(wrap(new GeoPoint(0, 1)), GeoPointValue.valueOf(new GeoPoint(0, 1)))
-        .addEqualityGroup(GeoPointValue.valueOf(new GeoPoint(1, 0)))
+        .addEqualityGroup(wrap(new GeoPoint(0, 1)), wrap(new GeoPoint(0, 1)))
+        .addEqualityGroup(wrap(new GeoPoint(1, 0)))
+        .addEqualityGroup(wrap(ref("coll/doc1")), wrap(ref("coll/doc1")))
         .addEqualityGroup(
-            wrap(ref("coll/doc1")), ReferenceValue.valueOf(dbId("project"), key("coll/doc1")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("project", "bar"), key("coll/doc2")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("project", "baz"), key("coll/doc2")))
+            Value.newBuilder()
+                .setReferenceValue("projects/projectId/databases/bar/documents/coll/doc2")
+                .build())
+        .addEqualityGroup(
+            Value.newBuilder()
+                .setReferenceValue("projects/projectId/databases/baz/documents/coll/doc2")
+                .build())
         .addEqualityGroup(wrap(Arrays.asList("foo", "bar")), wrap(Arrays.asList("foo", "bar")))
         .addEqualityGroup(wrap(Arrays.asList("foo", "bar", "baz")))
         .addEqualityGroup(wrap(Arrays.asList("foo")))
-        .addEqualityGroup(wrapObject(map("bar", 1, "foo", 2)), wrapObject(map("foo", 2, "bar", 1)))
-        .addEqualityGroup(wrapObject(map("bar", 2, "foo", 1)))
-        .addEqualityGroup(wrapObject(map("bar", 1)))
-        .addEqualityGroup(wrapObject(map("foo", 1)))
+        .addEqualityGroup(wrapObject("bar", 1, "foo", 2), wrapObject("foo", 2, "bar", 1))
+        .addEqualityGroup(wrapObject("bar", 2, "foo", 1))
+        .addEqualityGroup(wrapObject("bar", 1))
+        .addEqualityGroup(wrapObject("foo", 1))
         .testEquals();
   }
 
@@ -271,7 +269,7 @@ public class FieldValueTest {
         .addEqualityGroup(wrap(false))
         .addEqualityGroup(wrap(true))
 
-        // numbers
+        //  numbers
         .addEqualityGroup(wrap(Double.NaN))
         .addEqualityGroup(wrap(Double.NEGATIVE_INFINITY))
         .addEqualityGroup(wrap(-Double.MAX_VALUE))
@@ -293,8 +291,8 @@ public class FieldValueTest {
         .addEqualityGroup(wrap(Double.POSITIVE_INFINITY))
 
         // dates
-        .addEqualityGroup(wrap(date1))
-        .addEqualityGroup(wrap(date2))
+        .addEqualityGroup(wrap(new Timestamp(date1)))
+        .addEqualityGroup(wrap(new Timestamp(date2)))
 
         // server timestamps come after all concrete timestamps.
         // NOTE: server timestamps can't be parsed with wrap().
@@ -321,12 +319,12 @@ public class FieldValueTest {
         .addEqualityGroup(wrap(blob(255)))
 
         // resource names
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("p1", "d1"), key("c1/doc1")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("p1", "d1"), key("c1/doc2")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("p1", "d1"), key("c10/doc1")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("p1", "d1"), key("c2/doc1")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("p1", "d2"), key("c1/doc1")))
-        .addEqualityGroup(ReferenceValue.valueOf(dbId("p2", "d1"), key("c1/doc1")))
+        .addEqualityGroup(wrapRef(dbId("p1", "d1"), key("c1/doc1")))
+        .addEqualityGroup(wrapRef(dbId("p1", "d1"), key("c1/doc2")))
+        .addEqualityGroup(wrapRef(dbId("p1", "d1"), key("c10/doc1")))
+        .addEqualityGroup(wrapRef(dbId("p1", "d1"), key("c2/doc1")))
+        .addEqualityGroup(wrapRef(dbId("p1", "d2"), key("c1/doc1")))
+        .addEqualityGroup(wrapRef(dbId("p2", "d1"), key("c1/doc1")))
 
         // geo points
         .addEqualityGroup(wrap(new GeoPoint(-90, -180)))
@@ -349,11 +347,93 @@ public class FieldValueTest {
         .addEqualityGroup(wrap(Arrays.asList("foo", "0")))
 
         // objects
-        .addEqualityGroup(wrapObject(map("bar", 0)))
-        .addEqualityGroup(wrapObject(map("bar", 0, "foo", 1)))
-        .addEqualityGroup(wrapObject(map("foo", 1)))
-        .addEqualityGroup(wrapObject(map("foo", 2)))
-        .addEqualityGroup(wrapObject(map("foo", "0")))
+        .addEqualityGroup(wrapObject("bar", 0))
+        .addEqualityGroup(wrapObject("bar", 0, "foo", 1))
+        .addEqualityGroup(wrapObject("foo", 1))
+        .addEqualityGroup(wrapObject("foo", 2))
+        .addEqualityGroup(wrapObject("foo", "0"))
         .testCompare();
+  }
+
+  private PrimitiveValue wrap(Object o) {
+    return new PrimitiveValue(valueOf(o));
+  }
+
+  private ObjectValue wrapObject(Object... entries) {
+    com.google.firestore.v1.MapValue.Builder builder =
+        com.google.firestore.v1.MapValue.newBuilder();
+    for (int i = 0; i < entries.length; i += 2) {
+      builder.putFields((String) entries[i], valueOf(entries[i + 1]));
+    }
+    return new ObjectValue(Value.newBuilder().setMapValue(builder).build());
+  }
+
+  private Value valueOf(Object o) {
+    if (o instanceof Value) {
+      return (Value) o;
+    } else if (o instanceof String) {
+      return (Value.newBuilder().setStringValue((String) o).build());
+    } else if (o instanceof Integer) {
+      return (Value.newBuilder().setIntegerValue((long) (Integer) o).build());
+    } else if (o instanceof Long) {
+      return (Value.newBuilder().setIntegerValue((Long) o).build());
+    } else if (o instanceof Double) {
+      return (Value.newBuilder().setDoubleValue((Double) o).build());
+    } else if (o instanceof Boolean) {
+      return (Value.newBuilder().setBooleanValue((Boolean) o).build());
+    } else if (o instanceof Timestamp) {
+      return (Value.newBuilder()
+          .setTimestampValue(
+              com.google.protobuf.Timestamp.newBuilder()
+                  .setSeconds(((Timestamp) o).getSeconds())
+                  .setNanos(((Timestamp) o).getNanoseconds())
+                  .build())
+          .build());
+    } else if (o instanceof GeoPoint) {
+      return (Value.newBuilder()
+          .setGeoPointValue(
+              LatLng.newBuilder()
+                  .setLatitude(((GeoPoint) o).getLatitude())
+                  .setLongitude(((GeoPoint) o).getLongitude())
+                  .build())
+          .build());
+    } else if (o instanceof Blob) {
+      return (Value.newBuilder().setBytesValue(((Blob) o).toByteString()).build());
+    } else if (o instanceof DocumentReference) {
+      return (Value.newBuilder()
+          .setReferenceValue(
+              "projects/projectId/databases/(default)/documents/"
+                  + ((DocumentReference) o).getPath())
+          .build());
+    } else if (o instanceof List) {
+      ArrayValue.Builder list = ArrayValue.newBuilder();
+      for (Object element : (List) o) {
+        list.addValues(valueOf(element));
+      }
+      return (Value.newBuilder().setArrayValue(list).build());
+    } else if (o == null) {
+      return (Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build());
+    }
+
+    throw new UnsupportedOperationException();
+  }
+
+  private Value map(Object... entries) {
+    com.google.firestore.v1.MapValue.Builder builder =
+        com.google.firestore.v1.MapValue.newBuilder();
+    for (int i = 0; i < entries.length; i += 2) {
+      builder.putFields((String) entries[i], valueOf(entries[i + 1]));
+    }
+    return Value.newBuilder().setMapValue(builder).build();
+  }
+
+  private PrimitiveValue wrapRef(DatabaseId dbId, DocumentKey key) {
+    return new PrimitiveValue(
+        Value.newBuilder()
+            .setReferenceValue(
+                String.format(
+                    "projects/%s/databases/%s/documents/%s",
+                    dbId.getProjectId(), dbId.getDatabaseId(), key.toString()))
+            .build());
   }
 }
