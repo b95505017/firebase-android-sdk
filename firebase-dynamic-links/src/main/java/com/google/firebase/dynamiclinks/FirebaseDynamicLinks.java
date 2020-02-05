@@ -127,4 +127,9 @@ public abstract class FirebaseDynamicLinks {
    */
   @NonNull
   public abstract DynamicLink.Builder createDynamicLink();
+
+  @NonNull
+  public String returnSomething() {
+    return "Hello!";
+  }
 }
