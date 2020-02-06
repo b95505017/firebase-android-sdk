@@ -50,15 +50,11 @@ public final class ServerTimestampValue {
 
   private Value internalValue;
 
-  ServerTimestampValue(Value value) {
+  public ServerTimestampValue(Value value) {
     hardAssert(
         ServerTimestampValue.isServerTimestamp(value),
         "Backing value is not a ServerTimestampValue");
     this.internalValue = value;
-  }
-
-  public static ServerTimestampValue valueOf(Value value) {
-    return new ServerTimestampValue(value);
   }
 
   public static Value valueOf(Timestamp localWriteTime, @Nullable Value previousValue) {
