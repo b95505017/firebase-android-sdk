@@ -111,8 +111,7 @@ public class ObjectValue {
     }
   }
 
-
-  /** Returns Firestore Value Protobuf that backs this FieldValuee */
+  /** Returns Firestore Value Protobuf that backs this ObjectValue */
   public Value getProto() {
     return internalValue;
   }
