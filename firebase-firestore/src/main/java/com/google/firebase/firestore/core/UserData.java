@@ -329,7 +329,7 @@ public class UserData {
     private final List<FieldTransform> fieldTransforms;
 
     ParsedSetData(
-        ObjectValue data, @Nullable FieldMask fieldMask, List<FieldTransform> fieldTransforms) {
+            ObjectValue data, @Nullable FieldMask fieldMask, List<FieldTransform> fieldTransforms) {
       this.data = data;
       this.fieldMask = fieldMask;
       this.fieldTransforms = fieldTransforms;

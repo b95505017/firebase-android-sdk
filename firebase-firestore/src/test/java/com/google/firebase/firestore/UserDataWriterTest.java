@@ -30,7 +30,6 @@ import static org.junit.Assert.fail;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.model.DatabaseId;
 import com.google.firebase.firestore.model.DocumentKey;
-import com.google.firebase.firestore.model.value.FieldValue;
 import com.google.firebase.firestore.model.value.ObjectValue;
 import com.google.firebase.firestore.model.value.ProtoValues;
 import com.google.firestore.v1.ArrayValue;
@@ -49,246 +48,246 @@ import org.robolectric.annotation.Config;
 @Config(manifest = Config.NONE)
 public class UserDataWriterTest {
 
-  private final UserDataWriter writer =
-      new UserDataWriter(
-          TestUtil.firestore(), true, DocumentSnapshot.ServerTimestampBehavior.DEFAULT);
-
-  @Test
-  public void testConvertsNullValue() {
-    FieldValue value = wrap(null);
-    assertEquals(value, new FieldValue(ProtoValues.NULL_VALUE));
-  }
-
-  @Test
-  public void testConvertsBooleanValue() {
-    List<Boolean> testCases = asList(true, false);
-    for (Boolean b : testCases) {
-      FieldValue value = wrap(b);
-      assertValueType(value, Value.ValueTypeCase.BOOLEAN_VALUE);
-      Object convertedValue = convertValue(value);
-      assertEquals(b, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsIntegerValue() {
-    List<Integer> testCases = asList(Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE);
-    for (Integer i : testCases) {
-      FieldValue value = wrap(i);
-      assertValueType(value, Value.ValueTypeCase.INTEGER_VALUE);
-      Object convertedValue = convertValue(value);
-      assertEquals(i.longValue(), convertedValue);
-    }
-  }
-
-  @SuppressWarnings("UnnecessaryBoxing")
-  @Test
-  public void testConvertsLongValue() {
-    List<Long> testCases =
-        asList(
-            Long.MIN_VALUE,
-            Long.valueOf(Integer.MIN_VALUE),
-            -1L,
-            0L,
-            1L,
-            Long.valueOf(Integer.MAX_VALUE),
-            Long.MAX_VALUE);
-    for (Long l : testCases) {
-      FieldValue value = wrap(l);
-      assertValueType(value, Value.ValueTypeCase.INTEGER_VALUE);
-      Object convertedValue = convertValue(value);
-      assertEquals(l, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsFloatValue() {
-    List<Float> testCases =
-        asList(
-            -Float.MAX_VALUE,
-            Long.MIN_VALUE * 1.0f,
-            -1.1f,
-            -Float.MIN_VALUE,
-            -0.0f,
-            0.0f,
-            Float.MIN_VALUE,
-            Float.MIN_NORMAL,
-            Long.MAX_VALUE * 1.0f,
-            Float.MAX_VALUE);
-    for (Float f : testCases) {
-      FieldValue value = wrap(f);
-      assertValueType(value, Value.ValueTypeCase.DOUBLE_VALUE);
-      Object convertedValue = convertValue(value);
-      assertEquals(f.doubleValue(), convertedValue);
-    }
-  }
-
-  @SuppressWarnings("UnnecessaryBoxing")
-  @Test
-  public void testConvertsDoubleValue() {
-    List<Double> testCases =
-        asList(
-            Double.POSITIVE_INFINITY,
-            -Double.MAX_VALUE,
-            Double.valueOf(-Float.MAX_VALUE),
-            Long.MIN_VALUE * 1.0,
-            -1.1,
-            Double.valueOf(-Float.MIN_VALUE),
-            -Double.MIN_VALUE,
-            -0.0,
-            0.0,
-            Double.valueOf(Float.MIN_VALUE),
-            Double.MIN_VALUE,
-            Double.valueOf(Float.MIN_NORMAL),
-            Double.MIN_NORMAL,
-            Long.MAX_VALUE * 1.0,
-            Double.valueOf(Float.MAX_VALUE),
-            Double.MAX_VALUE,
-            Double.POSITIVE_INFINITY,
-            Double.NaN);
-    for (Double d : testCases) {
-      FieldValue value = wrap(d);
-      assertValueType(value, Value.ValueTypeCase.DOUBLE_VALUE);
-      Object convertedValue = convertValue(value);
-      assertEquals(d, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsDateValue() {
-    UserDataWriter dateWriter =
-        new UserDataWriter(
-            TestUtil.firestore(),
-            /* timestampsInSnapshots= */ false,
-            DocumentSnapshot.ServerTimestampBehavior.DEFAULT);
-    List<Date> testCases = asList(new Date(0), new Date(1356048000000L));
-    for (Date d : testCases) {
-      FieldValue value = wrap(d);
-      assertValueType(value, Value.ValueTypeCase.TIMESTAMP_VALUE);
-      Object convertedValue = dateWriter.convertValue(value.getProto());
-      assertEquals(d, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsTimestampValue() {
-    List<Timestamp> testCases = asList(new Timestamp(0, 0), new Timestamp(1356048000L, 0));
-    for (Timestamp t : testCases) {
-      FieldValue value = wrap(t);
-      assertValueType(value, Value.ValueTypeCase.TIMESTAMP_VALUE);
-      Object convertedValue = convertValue(value);
-      assertEquals(t, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsStringValue() {
-    List<String> testCases = asList("", "foo");
-    for (String s : testCases) {
-      FieldValue value = wrap(s);
-      Object convertedValue = convertValue(value);
-      assertEquals(s, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsBlobValue() {
-    List<Blob> testCases = asList(blob(1, 2, 3), blob(1, 2));
-    for (Blob b : testCases) {
-      FieldValue value = wrap(b);
-      Object convertedValue = convertValue(value);
-      assertEquals(b, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsResourceName() {
-    DatabaseId id = DatabaseId.forProject("project");
-    List<DocumentReference> testCases = asList(ref("foo/bar"), ref("foo/baz"));
-    for (DocumentReference docRef : testCases) {
-      Value value = valueOf(docRef);
-      assertTrue(ProtoValues.isReferenceValue(value));
-      assertEquals(
-          TestAccessHelper.referenceKey(docRef), DocumentKey.fromName(value.getReferenceValue()));
-      assertEquals(id, DatabaseId.fromName(value.getReferenceValue()));
-    }
-  }
-
-  @Test
-  public void testConvertsGeoPointValue() {
-    List<GeoPoint> testCases = asList(new GeoPoint(1.24, 4.56), new GeoPoint(-20, 100));
-    for (GeoPoint p : testCases) {
-      FieldValue value = wrap(p);
-      Object convertedValue = convertValue(value);
-      assertEquals(p, convertedValue);
-    }
-  }
-
-  @Test
-  public void testConvertsEmptyObjects() {
-    assertEquals(wrap(new TreeMap<String, FieldValue>()), ObjectValue.emptyObject());
-  }
-
-  @Test
-  public void testConvertsSimpleObjects() {
-    // Guava doesn't like null values, so we create a copy of the Immutable map without
-    // the null value and then add the null value later.
-    Map<String, Object> actual = map("a", "foo", "b", 1, "c", true, "d", null);
-
-    ObjectValue wrappedExpected =
-        fromMap(
-            "a", wrap("foo"),
-            "b", wrap(1L),
-            "c", wrap(true),
-            "d", wrap(null));
-
-    FieldValue wrappedActual = wrapObject(actual);
-    assertEquals(wrappedActual, wrappedExpected);
-  }
-
-  private static ObjectValue fromMap(Object... entries) {
-    Map<String, Value> res = new HashMap<>();
-    for (int i = 0; i < entries.length; i += 2) {
-      res.put((String) entries[i], ((FieldValue) entries[i + 1]).getProto());
-    }
-    return ObjectValue.fromMap(res);
-  }
-
-  @Test
-  public void testConvertsNestedObjects() {
-    FieldValue actual = wrapObject("a", map("b", map("c", "foo"), "d", true));
-    ObjectValue.Builder expected = ObjectValue.newBuilder();
-    expected.set(field("a.b.c"), valueOf("foo"));
-    expected.set(field("a.d"), valueOf(true));
-    assertEquals(expected.build(), actual);
-  }
-
-  @Test
-  public void testConvertsLists() {
-    ArrayValue.Builder expectedArray =
-        ArrayValue.newBuilder().addValues(valueOf("value")).addValues(valueOf(true));
-    FieldValue actual = wrap(asList("value", true));
-    assertTrue(
-        ProtoValues.equals(
-            Value.newBuilder().setArrayValue(expectedArray).build(), actual.getProto()));
-  }
-
-  @Test
-  public void testRejectsJavaArrays() {
-    String[] array = {"foo", "bar"};
-    try {
-      wrap(array);
-      fail("wrap should have failed");
-    } catch (IllegalArgumentException e) {
-      assertNotEquals(-1, e.getMessage().indexOf("use Lists instead"));
-    }
-  }
-
-  private Object convertValue(FieldValue value) {
-    return writer.convertValue(value.getProto());
-  }
-
-  private void assertValueType(FieldValue value, Value.ValueTypeCase booleanValue) {
-    assertEquals(booleanValue, value.getProto().getValueTypeCase());
-  }
+//  private final UserDataWriter writer =
+//      new UserDataWriter(
+//          TestUtil.firestore(), true, DocumentSnapshot.ServerTimestampBehavior.DEFAULT);
+//
+//  @Test
+//  public void testConvertsNullValue() {
+//    FieldValue value = wrap(null);
+//    assertEquals(value, new FieldValue(ProtoValues.NULL_VALUE));
+//  }
+//
+//  @Test
+//  public void testConvertsBooleanValue() {
+//    List<Boolean> testCases = asList(true, false);
+//    for (Boolean b : testCases) {
+//      FieldValue value = wrap(b);
+//      assertValueType(value, Value.ValueTypeCase.BOOLEAN_VALUE);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(b, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsIntegerValue() {
+//    List<Integer> testCases = asList(Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE);
+//    for (Integer i : testCases) {
+//      FieldValue value = wrap(i);
+//      assertValueType(value, Value.ValueTypeCase.INTEGER_VALUE);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(i.longValue(), convertedValue);
+//    }
+//  }
+//
+//  @SuppressWarnings("UnnecessaryBoxing")
+//  @Test
+//  public void testConvertsLongValue() {
+//    List<Long> testCases =
+//        asList(
+//            Long.MIN_VALUE,
+//            Long.valueOf(Integer.MIN_VALUE),
+//            -1L,
+//            0L,
+//            1L,
+//            Long.valueOf(Integer.MAX_VALUE),
+//            Long.MAX_VALUE);
+//    for (Long l : testCases) {
+//      FieldValue value = wrap(l);
+//      assertValueType(value, Value.ValueTypeCase.INTEGER_VALUE);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(l, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsFloatValue() {
+//    List<Float> testCases =
+//        asList(
+//            -Float.MAX_VALUE,
+//            Long.MIN_VALUE * 1.0f,
+//            -1.1f,
+//            -Float.MIN_VALUE,
+//            -0.0f,
+//            0.0f,
+//            Float.MIN_VALUE,
+//            Float.MIN_NORMAL,
+//            Long.MAX_VALUE * 1.0f,
+//            Float.MAX_VALUE);
+//    for (Float f : testCases) {
+//      FieldValue value = wrap(f);
+//      assertValueType(value, Value.ValueTypeCase.DOUBLE_VALUE);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(f.doubleValue(), convertedValue);
+//    }
+//  }
+//
+//  @SuppressWarnings("UnnecessaryBoxing")
+//  @Test
+//  public void testConvertsDoubleValue() {
+//    List<Double> testCases =
+//        asList(
+//            Double.POSITIVE_INFINITY,
+//            -Double.MAX_VALUE,
+//            Double.valueOf(-Float.MAX_VALUE),
+//            Long.MIN_VALUE * 1.0,
+//            -1.1,
+//            Double.valueOf(-Float.MIN_VALUE),
+//            -Double.MIN_VALUE,
+//            -0.0,
+//            0.0,
+//            Double.valueOf(Float.MIN_VALUE),
+//            Double.MIN_VALUE,
+//            Double.valueOf(Float.MIN_NORMAL),
+//            Double.MIN_NORMAL,
+//            Long.MAX_VALUE * 1.0,
+//            Double.valueOf(Float.MAX_VALUE),
+//            Double.MAX_VALUE,
+//            Double.POSITIVE_INFINITY,
+//            Double.NaN);
+//    for (Double d : testCases) {
+//      FieldValue value = wrap(d);
+//      assertValueType(value, Value.ValueTypeCase.DOUBLE_VALUE);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(d, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsDateValue() {
+//    UserDataWriter dateWriter =
+//        new UserDataWriter(
+//            TestUtil.firestore(),
+//            /* timestampsInSnapshots= */ false,
+//            DocumentSnapshot.ServerTimestampBehavior.DEFAULT);
+//    List<Date> testCases = asList(new Date(0), new Date(1356048000000L));
+//    for (Date d : testCases) {
+//      FieldValue value = wrap(d);
+//      assertValueType(value, Value.ValueTypeCase.TIMESTAMP_VALUE);
+//      Object convertedValue = dateWriter.convertValue(value.getProto());
+//      assertEquals(d, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsTimestampValue() {
+//    List<Timestamp> testCases = asList(new Timestamp(0, 0), new Timestamp(1356048000L, 0));
+//    for (Timestamp t : testCases) {
+//      FieldValue value = wrap(t);
+//      assertValueType(value, Value.ValueTypeCase.TIMESTAMP_VALUE);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(t, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsStringValue() {
+//    List<String> testCases = asList("", "foo");
+//    for (String s : testCases) {
+//      FieldValue value = wrap(s);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(s, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsBlobValue() {
+//    List<Blob> testCases = asList(blob(1, 2, 3), blob(1, 2));
+//    for (Blob b : testCases) {
+//      FieldValue value = wrap(b);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(b, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsResourceName() {
+//    DatabaseId id = DatabaseId.forProject("project");
+//    List<DocumentReference> testCases = asList(ref("foo/bar"), ref("foo/baz"));
+//    for (DocumentReference docRef : testCases) {
+//      Value value = valueOf(docRef);
+//      assertTrue(ProtoValues.isReferenceValue(value));
+//      assertEquals(
+//          TestAccessHelper.referenceKey(docRef), DocumentKey.fromName(value.getReferenceValue()));
+//      assertEquals(id, DatabaseId.fromName(value.getReferenceValue()));
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsGeoPointValue() {
+//    List<GeoPoint> testCases = asList(new GeoPoint(1.24, 4.56), new GeoPoint(-20, 100));
+//    for (GeoPoint p : testCases) {
+//      FieldValue value = wrap(p);
+//      Object convertedValue = convertValue(value);
+//      assertEquals(p, convertedValue);
+//    }
+//  }
+//
+//  @Test
+//  public void testConvertsEmptyObjects() {
+//    assertEquals(wrap(new TreeMap<String, FieldValue>()), ObjectValue.emptyObject());
+//  }
+//
+//  @Test
+//  public void testConvertsSimpleObjects() {
+//    // Guava doesn't like null values, so we create a copy of the Immutable map without
+//    // the null value and then add the null value later.
+//    Map<String, Object> actual = map("a", "foo", "b", 1, "c", true, "d", null);
+//
+//    ObjectValue wrappedExpected =
+//        fromMap(
+//            "a", wrap("foo"),
+//            "b", wrap(1L),
+//            "c", wrap(true),
+//            "d", wrap(null));
+//
+//    FieldValue wrappedActual = wrapObject(actual);
+//    assertEquals(wrappedActual, wrappedExpected);
+//  }
+//
+//  private static ObjectValue fromMap(Object... entries) {
+//    Map<String, Value> res = new HashMap<>();
+//    for (int i = 0; i < entries.length; i += 2) {
+//      res.put((String) entries[i], ((FieldValue) entries[i + 1]).getProto());
+//    }
+//    return ObjectValue.fromMap(res);
+//  }
+//
+//  @Test
+//  public void testConvertsNestedObjects() {
+//    FieldValue actual = wrapObject("a", map("b", map("c", "foo"), "d", true));
+//    ObjectValue.Builder expected = ObjectValue.newBuilder();
+//    expected.set(field("a.b.c"), valueOf("foo"));
+//    expected.set(field("a.d"), valueOf(true));
+//    assertEquals(expected.build(), actual);
+//  }
+//
+//  @Test
+//  public void testConvertsLists() {
+//    ArrayValue.Builder expectedArray =
+//        ArrayValue.newBuilder().addValues(valueOf("value")).addValues(valueOf(true));
+//    FieldValue actual = wrap(asList("value", true));
+//    assertTrue(
+//        ProtoValues.equals(
+//            Value.newBuilder().setArrayValue(expectedArray).build(), actual.getProto()));
+//  }
+//
+//  @Test
+//  public void testRejectsJavaArrays() {
+//    String[] array = {"foo", "bar"};
+//    try {
+//      wrap(array);
+//      fail("wrap should have failed");
+//    } catch (IllegalArgumentException e) {
+//      assertNotEquals(-1, e.getMessage().indexOf("use Lists instead"));
+//    }
+//  }
+//
+//  private Object convertValue(FieldValue value) {
+//    return writer.convertValue(value.getProto());
+//  }
+//
+//  private void assertValueType(FieldValue value, Value.ValueTypeCase booleanValue) {
+//    assertEquals(booleanValue, value.getProto().getValueTypeCase());
+//  }
 }

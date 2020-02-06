@@ -87,7 +87,7 @@ public class QuerySnapshotTest {
 
     ObjectValue objectData =
         ObjectValue.fromMap(
-            map("timestamp", ServerTimestampValue.valueOf(Timestamp.now(), null).getProto()));
+            map("timestamp", ServerTimestampValue.valueOf(Timestamp.now(), null)));
     QuerySnapshot foo = TestUtil.querySnapshot("foo", map(), map("a", objectData), true, false);
 
     List<POJO> docs = foo.toObjects(POJO.class);

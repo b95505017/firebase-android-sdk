@@ -72,7 +72,7 @@ public class TestUtil {
   }
 
   public static Document doc(
-      String key, long version, ObjectValue data, Document.DocumentState documentState) {
+          String key, long version, ObjectValue data, Document.DocumentState documentState) {
     return new Document(key(key), version(version), data, documentState);
   }
 

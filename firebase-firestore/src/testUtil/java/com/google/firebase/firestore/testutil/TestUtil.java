@@ -62,7 +62,6 @@ import com.google.firebase.firestore.model.mutation.Precondition;
 import com.google.firebase.firestore.model.mutation.SetMutation;
 import com.google.firebase.firestore.model.mutation.TransformMutation;
 import com.google.firebase.firestore.model.mutation.VerifyMutation;
-import com.google.firebase.firestore.model.value.FieldValue;
 import com.google.firebase.firestore.model.value.ObjectValue;
 import com.google.firebase.firestore.model.value.ProtoValues;
 import com.google.firebase.firestore.remote.RemoteEvent;
@@ -127,16 +126,16 @@ public class TestUtil {
 
   public static final Map<String, Object> EMPTY_MAP = new HashMap<>();
 
-  public static FieldValue wrap(Object value) {
+  public static Value wrap(Object value) {
     DatabaseId databaseId = DatabaseId.forProject("project");
     UserDataReader dataReader = new UserDataReader(databaseId);
     // HACK: We use parseQueryValue() since it accepts scalars as well as arrays / objects, and
     // our tests currently use wrap() pretty generically so we don't know the intent.
-    return new FieldValue(dataReader.parseQueryValue(value));
+    return dataReader.parseQueryValue(value);
   }
 
-  public static FieldValue wrapRef(DatabaseId databaseId, DocumentKey key) {
-    return new FieldValue(ProtoValues.refValue(databaseId, key));
+  public static Value wrapRef(DatabaseId databaseId, DocumentKey key) {
+    return ProtoValues.refValue(databaseId, key);
   }
 
   public static ObjectValue wrapObject(Map<String, Object> value) {
@@ -149,7 +148,8 @@ public class TestUtil {
   }
 
   public static Value valueOf(Object value) {
-    return wrap(value).getProto();
+      // TODO: Inline
+    return wrap(value);
   }
 
   public static DocumentKey key(String key) {
@@ -196,7 +196,7 @@ public class TestUtil {
   }
 
   public static Document doc(
-      String key, long version, ObjectValue data, Document.DocumentState documentState) {
+          String key, long version, ObjectValue data, Document.DocumentState documentState) {
     return new Document(key(key), version(version), data, documentState);
   }
 
@@ -488,8 +488,8 @@ public class TestUtil {
       FieldPath fieldPath = field(entry.getKey());
       objectMask.add(fieldPath);
       if (!entry.getValue().equals(DELETE_SENTINEL)) {
-        FieldValue parsedValue = wrap(entry.getValue());
-        objectValue.set(fieldPath, parsedValue.getProto());
+        Value parsedValue = wrap(entry.getValue());
+        objectValue.set(fieldPath, parsedValue);
       }
     }
 

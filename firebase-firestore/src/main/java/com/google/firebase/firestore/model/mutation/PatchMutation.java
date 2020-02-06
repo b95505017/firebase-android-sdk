@@ -44,7 +44,7 @@ public final class PatchMutation extends Mutation {
   private final FieldMask mask;
 
   public PatchMutation(
-      DocumentKey key, ObjectValue value, FieldMask mask, Precondition precondition) {
+          DocumentKey key, ObjectValue value, FieldMask mask, Precondition precondition) {
     super(key, precondition);
     this.value = value;
     this.mask = mask;
